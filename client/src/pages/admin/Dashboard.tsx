@@ -2267,9 +2267,9 @@ function ProductItem({
             variant="outline"
             onClick={() => onEdit(product)}
             data-testid={`button-edit-product-${product.id}`}
+            title="Editar produto"
           >
-            <Edit2 className="w-4 h-4 mr-1" />
-            Editar
+            <Edit2 className="w-4 h-4" />
           </Button>
           <Button 
             size="icon" 
@@ -3844,9 +3844,9 @@ function MotoboysTab() {
                     }
                   }}
                   data-testid="button-edit-from-details"
+                  title="Editar informacoes do motoboy"
                 >
-                  <Edit2 className="w-4 h-4 mr-2" />
-                  Editar
+                  <Edit2 className="w-4 h-4" />
                 </Button>
               </div>
             </div>
@@ -4016,9 +4016,9 @@ function MotoboysTab() {
                   className="flex-1"
                   onClick={() => { setEditingMotoboy(motoboy); setIsDialogOpen(true); }}
                   data-testid={`button-edit-motoboy-${motoboy.id}`}
+                  title="Editar motoboy"
                 >
-                  <Edit2 className="w-4 h-4 mr-2" />
-                  Editar
+                  <Edit2 className="w-4 h-4" />
                 </Button>
                 <Button 
                   size="icon" 

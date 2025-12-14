@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -7,7 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useQuery } from '@tanstack/react-query';
 import { useCart } from '@/lib/cart';
 import { useToast } from '@/hooks/use-toast';
-import { Wine, Loader2, Plus, Minus, ShoppingCart, Sparkles, ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react';
+import { Wine, Loader2, Plus, Minus, ShoppingCart, Sparkles, Pause, Play, GripHorizontal } from 'lucide-react';
 import type { Product, Category } from '@shared/schema';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -22,6 +22,8 @@ export function SpecialDrinksModal({ open, onOpenChange }: SpecialDrinksModalPro
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
+  const dragStartX = useRef(0);
+  const dragStartTime = useRef(0);
 
   const { data: products = [], isLoading: productsLoading } = useQuery<Product[]>({
     queryKey: ['/api/products'],
@@ -105,16 +107,27 @@ export function SpecialDrinksModal({ open, onOpenChange }: SpecialDrinksModalPro
     });
   };
 
-  const handlePrev = () => {
-    setCurrentIndex(prev => prev === 0 ? specialDrinks.length - 1 : prev - 1);
+  const handleDragStart = (e: React.MouseEvent | React.TouchEvent) => {
+    dragStartX.current = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    dragStartTime.current = Date.now();
   };
 
-  const handleNext = () => {
-    setCurrentIndex(prev => (prev + 1) % specialDrinks.length);
+  const handleDragEnd = (e: React.MouseEvent | React.TouchEvent) => {
+    const endX = 'changedTouches' in e ? e.changedTouches[0].clientX : (e as React.MouseEvent).clientX;
+    const deltaX = dragStartX.current - endX;
+    const deltaTime = Date.now() - dragStartTime.current;
+    
+    if (Math.abs(deltaX) > 30 && deltaTime < 500) {
+      if (deltaX > 0) {
+        setCurrentIndex(prev => (prev + 1) % specialDrinks.length);
+      } else {
+        setCurrentIndex(prev => prev === 0 ? specialDrinks.length - 1 : prev - 1);
+      }
+      setIsAutoPlaying(false);
+    }
   };
 
   const isLoading = productsLoading || categoriesLoading;
-
   const currentDrink = specialDrinks[currentIndex];
 
   return (
@@ -194,18 +207,23 @@ export function SpecialDrinksModal({ open, onOpenChange }: SpecialDrinksModalPro
                           animate={{ opacity: 1, x: 0 }}
                           exit={{ opacity: 0, x: -20 }}
                           transition={{ duration: 0.3 }}
+                          onMouseDown={handleDragStart}
+                          onMouseUp={handleDragEnd}
+                          onTouchStart={handleDragStart}
+                          onTouchEnd={handleDragEnd}
+                          className="cursor-grab active:cursor-grabbing"
                         >
                           <Card 
                             className="overflow-hidden border-2 border-purple-500 shadow-lg shadow-purple-500/20"
                             data-testid={`card-special-drink-${currentDrink.id}`}
                           >
                             <div className="flex flex-col sm:flex-row">
-                              <div className="relative w-full sm:w-2/5 md:w-1/3 aspect-[4/3] sm:aspect-square overflow-hidden bg-gradient-to-br from-purple-900/20 to-pink-900/20 flex-shrink-0">
+                              <div className="relative w-full sm:w-2/5 md:w-1/3 aspect-square overflow-hidden bg-gradient-to-br from-purple-900/20 to-pink-900/20 flex-shrink-0">
                                 {currentDrink.imageUrl ? (
                                   <img
                                     src={currentDrink.imageUrl}
                                     alt={currentDrink.name}
-                                    className="w-full h-full object-cover"
+                                    className="w-full h-full object-contain"
                                     loading="lazy"
                                   />
                                 ) : (
@@ -290,21 +308,18 @@ export function SpecialDrinksModal({ open, onOpenChange }: SpecialDrinksModalPro
                       )}
                     </AnimatePresence>
 
-                    <div className="flex items-center justify-center gap-2 sm:gap-3">
-                      <Button
-                        size="icon"
-                        variant="outline"
-                        onClick={handlePrev}
-                        className="h-8 w-8 sm:h-9 sm:w-9 border-purple-500/50 flex-shrink-0"
-                        aria-label="Drink anterior"
-                        data-testid="button-carousel-prev"
-                      >
-                        <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5 text-purple-400" />
-                      </Button>
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-center justify-center gap-1 sm:gap-2 px-2">
+                        <GripHorizontal className="h-4 w-4 sm:h-5 sm:w-5 text-purple-400/50 flex-shrink-0" />
+                        <div className="text-xs text-purple-400/60 text-center flex-1">
+                          Deslize para navegar
+                        </div>
+                        <GripHorizontal className="h-4 w-4 sm:h-5 sm:w-5 text-purple-400/50 flex-shrink-0" />
+                      </div>
 
                       {specialDrinks.length > 1 && (
                         <div 
-                          className="flex gap-1 sm:gap-1.5 overflow-x-auto max-w-[200px] sm:max-w-none py-1"
+                          className="flex gap-1 sm:gap-1.5 justify-center py-1"
                           role="tablist"
                           aria-label="Navegacao do carrossel"
                         >
@@ -328,17 +343,6 @@ export function SpecialDrinksModal({ open, onOpenChange }: SpecialDrinksModalPro
                           )}
                         </div>
                       )}
-
-                      <Button
-                        size="icon"
-                        variant="outline"
-                        onClick={handleNext}
-                        className="h-8 w-8 sm:h-9 sm:w-9 border-purple-500/50 flex-shrink-0"
-                        aria-label="Proximo drink"
-                        data-testid="button-carousel-next"
-                      >
-                        <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 text-purple-400" />
-                      </Button>
                     </div>
                   </div>
                 )}
