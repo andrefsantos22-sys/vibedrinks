@@ -1,112 +1,107 @@
-# Deployment Guide - Vercel (Frontend) + Render (Backend)
+# Deploy no Render
 
-This project is configured for free-tier deployment on Vercel and Render.
-
-## Architecture
-
-- **Frontend (Vercel)**: React + Vite app
-- **Backend (Render)**: Express API server
+## Arquitetura
+- **Full-Stack**: React + Vite (Frontend) + Express (Backend) no **mesmo serviço**
 - **Database**: Supabase (PostgreSQL)
 - **Storage**: Supabase Storage
 
-## Step 1: Deploy Backend to Render
+## Pré-requisitos
+- Conta em [render.com](https://render.com)
+- Repositório GitHub com este projeto
+- Variáveis de ambiente do Supabase
 
-1. Create a new account at [render.com](https://render.com)
-2. Connect your GitHub repository
-3. Create a new **Web Service**
-4. Configure:
-   - **Name**: `vibe-drinks-api`
-   - **Environment**: `Node`
-   - **Build Command**: `npm ci --include=dev && npx tsx script/build-server.ts`
-   - **Start Command**: `node dist/index.cjs`
-   - **Instance Type**: Free
+## Passos para Deploy
 
-5. Add Environment Variables in Render Dashboard:
-   ```
-   NODE_ENV=production
-   SUPABASE_URL=https://bdiqskitwcryglxfkftm.supabase.co
-   SUPABASE_SERVICE_ROLE_KEY=<your-service-role-key>
-   SUPABASE_DATABASE_URL=<your-database-url>
-   SESSION_SECRET=<generate-a-random-string>
-   FRONTEND_URL=<your-vercel-url-after-step-2>
-   ```
+### 1. Conectar Repositório ao Render
+1. Acesse [Render Dashboard](https://dashboard.render.com)
+2. Clique em "New +" → "Web Service"
+3. Conecte seu repositório GitHub
+4. Autorize o Render a acessar seu repositório
 
-6. Deploy and note your Render URL (e.g., `https://vibe-drinks-api.onrender.com`)
+### 2. Configuração Automática
+O arquivo `render.yaml` já contém toda a configuração necessária:
 
-## Step 2: Deploy Frontend to Vercel
-
-1. Create account at [vercel.com](https://vercel.com)
-2. Import your GitHub repository
-3. Configure:
-   - **Framework Preset**: Vite
-   - **Build Command**: `vite build`
-   - **Output Directory**: `dist/public`
-   - **Install Command**: `npm install`
-
-4. Add Environment Variables in Vercel Dashboard:
-   ```
-   VITE_API_URL=https://your-render-backend.onrender.com
-   VITE_SUPABASE_URL=https://bdiqskitwcryglxfkftm.supabase.co
-   VITE_SUPABASE_ANON_KEY=<your-anon-key>
-   ```
-
-5. Deploy
-
-**Note:** Vercel will auto-detect Vite and use the vercel.json configuration provided.
-
-## Step 3: Update Render with Frontend URL
-
-After deploying to Vercel, go back to Render and update:
-```
-FRONTEND_URL=https://your-app.vercel.app
+```yaml
+services:
+  - type: web
+    name: vibe-drinks
+    runtime: node
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm run start
 ```
 
-## Important Notes
+**Render lerá automaticamente este arquivo!**
 
-### Free Tier Limitations
+### 3. Variáveis de Ambiente
 
-**Render Free Tier:**
-- Services sleep after 15 minutes of inactivity
-- First request after sleep takes 30-60 seconds to wake up
-- 750 hours/month (enough for one always-on service)
+No dashboard do Render, adicione em "Environment":
 
-**Vercel Free Tier:**
-- Unlimited static hosting
-- 100GB bandwidth/month
-- Great for frontends
+```
+NODE_ENV=production
+PORT=5000
+SUPABASE_URL=https://seu-projeto.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=sua-chave-de-servico
+SUPABASE_DATABASE_URL=sua-url-postgres-do-supabase
+SESSION_SECRET=(será gerado automaticamente)
+FRONTEND_URL=https://vibe-drinks.onrender.com
+VITE_API_URL=https://vibe-drinks.onrender.com
+VITE_SUPABASE_URL=https://seu-projeto.supabase.co
+VITE_SUPABASE_ANON_KEY=sua-chave-publica-do-supabase
+```
 
-### Scripts Available
+### 4. Deploy
 
-- `npm run dev` - Development (Replit)
-- `npm run build` - Build both frontend and backend (for Replit)
-- `npm run start` - Start production server
-- `npx tsx script/build-server.ts` - Build server only (for Render)
+1. Clique em "Create Web Service"
+2. Render fará o deploy automaticamente
+3. Cada push para `main` dispara novo deploy
 
-### Supabase Configuration
+## Como Funciona
 
-Make sure your Supabase project has:
-1. Storage bucket named `images` with public access
-2. Database tables created (run migrations if needed)
+```
+1. npm ci → Instala dependências exatas
+2. npm run build →
+   ├─ vite build → Compila React + Vite
+   └─ esbuild → Compila backend para dist/index.mjs
+3. npm run start →
+   ├─ Inicia servidor Express em PORT 5000
+   └─ Serve arquivos estáticos do dist/public
+```
 
-### CORS
+## Monitoramento
 
-The backend is configured to accept requests from:
-- Your Vercel frontend URL (set via `FRONTEND_URL`)
-- localhost for development
+- **Logs**: Aba "Logs" do Render Dashboard
+- **Status**: Aba "Health" mostra status do serviço
+- **Métricas**: Aba "Metrics" mostra CPU/memória/requisições
 
 ## Troubleshooting
 
-**API not responding:**
-- Check Render logs
-- Ensure environment variables are set correctly
-- Wait for cold start if service was sleeping (free tier sleeps after 15 min)
+### Build falha
+```
+✓ Verifique npm run build localmente
+✓ Confirme todas as variáveis de ambiente
+✓ Veja logs em "Logs" do dashboard
+```
 
-**CORS errors:**
-- Verify `FRONTEND_URL` is set correctly in Render
-- Include protocol (https://) - e.g., `https://your-app.vercel.app`
-- Do NOT include trailing slash
+### Aplicação não inicia
+```
+✓ Confirme PORT=5000 está set
+✓ Veja logs em tempo real
+✓ npm run start funciona localmente?
+```
 
-**Build failures:**
-- Check Node version (should be 18 or 20)
-- Verify all dependencies are in package.json
-- Make sure build command is exactly: `npm ci --include=dev && npx tsx script/build-server.ts`
+### Erro de conexão com banco
+```
+✓ SUPABASE_DATABASE_URL está correto?
+✓ SUPABASE_SERVICE_ROLE_KEY está válida?
+✓ Teste conexão localmente
+```
+
+## Verificar Deploy
+
+Após deploy, acesse:
+```
+https://vibe-drinks.onrender.com
+```
+
+Render levará ~2-5 minutos para build + start.
+Monitore progresso em "Events" do dashboard.
