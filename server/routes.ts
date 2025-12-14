@@ -1,6 +1,6 @@
 import type { Express, Response } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { storage, seedDatabase } from "./storage";
 import bcrypt from "bcrypt";
 import multer from "multer";
 import { uploadFile, deleteFile, getStorageUrl } from "./supabase";
@@ -148,6 +148,16 @@ export async function registerRoutes(
     if (!user) return res.status(404).json({ error: "User not found" });
     await storage.deleteUser(req.params.id);
     res.status(204).send();
+  });
+
+  app.post("/api/seed-users", async (_req, res) => {
+    try {
+      await seedDatabase();
+      res.json({ success: true, message: "Usuarios padroes criados: Admin (939393), Cozinha (939393), Balcao (939393)" });
+    } catch (error) {
+      console.error("Error seeding users:", error);
+      res.status(500).json({ error: "Erro ao criar usuarios padroes" });
+    }
   });
 
   app.post("/api/auth/login", async (req, res) => {
