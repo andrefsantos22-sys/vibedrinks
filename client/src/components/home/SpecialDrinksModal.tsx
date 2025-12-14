@@ -218,7 +218,7 @@ export function SpecialDrinksModal({ open, onOpenChange }: SpecialDrinksModalPro
                             data-testid={`card-special-drink-${currentDrink.id}`}
                           >
                             <div className="flex flex-col sm:flex-row">
-                              <div className="relative w-full sm:w-2/5 md:w-1/3 aspect-square overflow-hidden bg-gradient-to-br from-purple-900/20 to-pink-900/20 flex-shrink-0">
+                              <div className="relative w-full sm:w-2/5 md:w-1/3 h-32 sm:h-36 overflow-hidden bg-gradient-to-br from-purple-900/20 to-pink-900/20 flex-shrink-0">
                                 {currentDrink.imageUrl ? (
                                   <img
                                     src={currentDrink.imageUrl}
@@ -228,37 +228,37 @@ export function SpecialDrinksModal({ open, onOpenChange }: SpecialDrinksModalPro
                                   />
                                 ) : (
                                   <div className="w-full h-full flex items-center justify-center">
-                                    <Wine className="h-12 w-12 sm:h-16 sm:w-16 text-purple-400/50" />
+                                    <Wine className="h-10 w-10 sm:h-12 sm:w-12 text-purple-400/50" />
                                   </div>
                                 )}
                                 
                                 {!currentDrink.isPrepared && currentDrink.stock <= 0 && (
                                   <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
-                                    <Badge variant="secondary">Esgotado</Badge>
+                                    <Badge variant="secondary" className="text-xs">Esgotado</Badge>
                                   </div>
                                 )}
 
                                 <Badge 
-                                  className="absolute top-2 right-2 bg-gradient-to-r from-purple-500 to-pink-500 border-none text-xs"
+                                  className="absolute top-1 right-1 bg-gradient-to-r from-purple-500 to-pink-500 border-none text-xs py-0.5 px-1.5"
                                 >
                                   Especial
                                 </Badge>
                               </div>
                               
-                              <div className="flex-1 p-3 sm:p-4 flex flex-col justify-between min-h-[120px] sm:min-h-[140px]">
+                              <div className="flex-1 p-2 sm:p-3 flex flex-col justify-between min-h-[100px]">
                                 <div>
-                                  <h3 className="font-semibold text-sm sm:text-base md:text-lg line-clamp-2 mb-1">
+                                  <h3 className="font-semibold text-xs sm:text-sm line-clamp-2 mb-0.5">
                                     {currentDrink.name}
                                   </h3>
                                   {currentDrink.description && (
-                                    <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">
+                                    <p className="text-xs text-muted-foreground line-clamp-1">
                                       {currentDrink.description}
                                     </p>
                                   )}
                                 </div>
                                 
-                                <div className="flex items-center justify-between gap-2 mt-2 sm:mt-3">
-                                  <span className="font-bold text-lg sm:text-xl md:text-2xl text-purple-400">
+                                <div className="flex items-center justify-between gap-1 mt-1">
+                                  <span className="font-bold text-sm sm:text-base text-purple-400">
                                     {formatPrice(currentDrink.salePrice)}
                                   </span>
                                   
@@ -268,33 +268,33 @@ export function SpecialDrinksModal({ open, onOpenChange }: SpecialDrinksModalPro
                                         <Button
                                           size="sm"
                                           onClick={() => handleAddToCart(currentDrink)}
-                                          className="bg-gradient-to-r from-purple-500 to-pink-500 text-xs sm:text-sm"
+                                          className="bg-gradient-to-r from-purple-500 to-pink-500 text-xs h-7"
                                           data-testid={`button-add-${currentDrink.id}`}
                                         >
-                                          <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                                          Adicionar
+                                          <Plus className="h-3 w-3 mr-0.5" />
+                                          Add
                                         </Button>
                                       ) : (
-                                        <div className="flex items-center gap-1 sm:gap-2">
+                                        <div className="flex items-center gap-0.5">
                                           <Button
                                             size="icon"
                                             variant="outline"
-                                            className="h-8 w-8 sm:h-9 sm:w-9"
+                                            className="h-6 w-6"
                                             onClick={() => updateQuantity(currentDrink.id, getCartQuantity(currentDrink.id) - 1)}
                                             data-testid={`button-decrease-${currentDrink.id}`}
                                           >
-                                            <Minus className="h-3 w-3 sm:h-4 sm:w-4" />
+                                            <Minus className="h-2.5 w-2.5" />
                                           </Button>
-                                          <span className="w-6 sm:w-8 text-center font-bold text-sm sm:text-base">
+                                          <span className="w-5 text-center font-bold text-xs">
                                             {getCartQuantity(currentDrink.id)}
                                           </span>
                                           <Button
                                             size="icon"
-                                            className="h-8 w-8 sm:h-9 sm:w-9 bg-gradient-to-r from-purple-500 to-pink-500"
+                                            className="h-6 w-6 bg-gradient-to-r from-purple-500 to-pink-500"
                                             onClick={() => updateQuantity(currentDrink.id, getCartQuantity(currentDrink.id) + 1)}
                                             data-testid={`button-increase-${currentDrink.id}`}
                                           >
-                                            <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
+                                            <Plus className="h-2.5 w-2.5" />
                                           </Button>
                                         </div>
                                       )}

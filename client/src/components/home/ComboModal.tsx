@@ -216,13 +216,13 @@ export function ComboModal({ open, onOpenChange }: ComboModalProps) {
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : (
-          <div className="space-y-6">
-            <div className="space-y-3">
+          <div className="space-y-4">
+            <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Wine className="h-5 w-5 text-primary" />
-                <h3 className="font-semibold">1. Escolha a Categoria</h3>
+                <h3 className="font-semibold text-sm">1. Escolha a Categoria</h3>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5">
                 {comboCategories.map((cat) => (
                   <Button
                     key={cat.id}
@@ -241,14 +241,14 @@ export function ComboModal({ open, onOpenChange }: ComboModalProps) {
             </div>
 
             {selectedCategory && (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <Package className="h-5 w-5 text-primary" />
-                  <h3 className="font-semibold">2. Escolha a Garrafa</h3>
-                  <span className="text-xs text-muted-foreground">({destiladosByCategory.length} opcoes)</span>
+                  <h3 className="font-semibold text-sm">2. Escolha a Garrafa</h3>
+                  <span className="text-xs text-muted-foreground">({destiladosByCategory.length})</span>
                 </div>
-                <ScrollArea className="h-[150px] rounded-md border">
-                  <div className="p-2 space-y-1">
+                <ScrollArea className="h-[110px] rounded-md border">
+                  <div className="p-1.5 space-y-0.5">
                     {destiladosByCategory.length === 0 ? (
                       <p className="text-sm text-muted-foreground text-center py-4">
                         Nenhum produto disponivel nesta categoria
@@ -258,17 +258,17 @@ export function ComboModal({ open, onOpenChange }: ComboModalProps) {
                         <button
                           key={product.id}
                           onClick={() => setSelectedDestilado(selectedDestilado?.id === product.id ? null : product)}
-                          className={`w-full flex items-center justify-between p-2 rounded-md text-sm text-left transition-colors hover-elevate ${
+                          className={`w-full flex items-center justify-between p-1.5 rounded-md text-xs text-left transition-colors hover-elevate ${
                             selectedDestilado?.id === product.id 
                               ? 'bg-primary/10 border border-primary' 
                               : 'hover:bg-muted'
                           }`}
                           data-testid={`button-select-destilado-${product.id}`}
                         >
-                          <span className="flex-1 truncate pr-2">{product.name}</span>
-                          <span className="flex items-center gap-2 shrink-0">
-                            <span className="text-muted-foreground">R$ {Number(product.salePrice).toFixed(2)}</span>
-                            {selectedDestilado?.id === product.id && <Check className="h-4 w-4 text-primary" />}
+                          <span className="flex-1 truncate pr-1">{product.name}</span>
+                          <span className="flex items-center gap-1 shrink-0">
+                            <span className="text-muted-foreground text-xs">R$ {Number(product.salePrice).toFixed(2)}</span>
+                            {selectedDestilado?.id === product.id && <Check className="h-3 w-3 text-primary" />}
                           </span>
                         </button>
                       ))
@@ -278,15 +278,15 @@ export function ComboModal({ open, onOpenChange }: ComboModalProps) {
               </div>
             )}
 
-            <div className="space-y-3">
+            <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Snowflake className="h-5 w-5 text-primary" />
-                <h3 className="font-semibold">3. Escolha os 4 Gelos</h3>
+                <h3 className="font-semibold text-sm">3. Escolha os 4 Gelos</h3>
                 <span className="text-xs text-muted-foreground">({totalGelosCount}/{ICE_COUNT})</span>
               </div>
               
-              <ScrollArea className="h-[200px] rounded-md border">
-                <div className="p-2 space-y-2">
+              <ScrollArea className="h-[140px] rounded-md border">
+                <div className="p-1.5 space-y-1">
                   {gelosAvailable.length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-4">
                       Nenhum gelo disponivel
@@ -298,34 +298,34 @@ export function ComboModal({ open, onOpenChange }: ComboModalProps) {
                       return (
                         <div
                           key={product.id}
-                          className="flex items-center justify-between p-2 rounded-md border hover-elevate"
+                          className="flex items-center justify-between p-1.5 rounded-md border hover-elevate text-xs"
                           data-testid={`item-gelo-${product.id}`}
                         >
                           <div className="flex-1 min-w-0">
-                            <span className="text-sm font-medium block truncate">{product.name.replace(/GELO /i, '')}</span>
+                            <span className="text-xs font-medium block truncate">{product.name.replace(/GELO /i, '')}</span>
                             <span className="text-xs text-muted-foreground">R$ {Number(product.salePrice).toFixed(2)}</span>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0 ml-2">
+                          <div className="flex items-center gap-1 shrink-0 ml-1">
                             <Button
                               variant="outline"
                               size="sm"
-                              className="h-7 w-7 p-0"
+                              className="h-6 w-6 p-0"
                               onClick={() => handleGeloQuantityChange(product, -1)}
                               disabled={quantity === 0}
                               data-testid={`button-decrease-gelo-${product.id}`}
                             >
-                              <Minus className="h-3 w-3" />
+                              <Minus className="h-2.5 w-2.5" />
                             </Button>
-                            <span className="w-6 text-center text-sm font-semibold">{quantity}</span>
+                            <span className="w-4 text-center text-xs font-semibold">{quantity}</span>
                             <Button
                               variant="outline"
                               size="sm"
-                              className="h-7 w-7 p-0"
+                              className="h-6 w-6 p-0"
                               onClick={() => handleGeloQuantityChange(product, 1)}
                               disabled={totalGelosCount >= ICE_COUNT}
                               data-testid={`button-increase-gelo-${product.id}`}
                             >
-                              <Plus className="h-3 w-3" />
+                              <Plus className="h-2.5 w-2.5" />
                             </Button>
                           </div>
                         </div>
@@ -336,13 +336,13 @@ export function ComboModal({ open, onOpenChange }: ComboModalProps) {
               </ScrollArea>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Zap className="h-5 w-5 text-primary" />
-                <h3 className="font-semibold">4. Escolha o Energetico</h3>
+                <h3 className="font-semibold text-sm">4. Energetico</h3>
               </div>
               
-              <div className="flex gap-4 mb-3">
+              <div className="flex gap-2 mb-2">
                 <Button
                   variant={energeticoOption === '2L' ? 'default' : 'outline'}
                   size="sm"
@@ -351,8 +351,9 @@ export function ComboModal({ open, onOpenChange }: ComboModalProps) {
                     setSelectedEnergetico(null);
                   }}
                   data-testid="button-energetico-2l"
+                  className="text-xs"
                 >
-                  1 Garrafa 2L
+                  2L
                 </Button>
                 <Button
                   variant={energeticoOption === '4cans' ? 'default' : 'outline'}
@@ -362,13 +363,14 @@ export function ComboModal({ open, onOpenChange }: ComboModalProps) {
                     setSelectedEnergetico(null);
                   }}
                   data-testid="button-energetico-4cans"
+                  className="text-xs"
                 >
-                  {CAN_COUNT} Latas
+                  4 Latas
                 </Button>
               </div>
 
-              <ScrollArea className="h-[120px] rounded-md border">
-                <div className="p-2 space-y-1">
+              <ScrollArea className="h-[100px] rounded-md border">
+                <div className="p-1.5 space-y-0.5">
                   {(energeticoOption === '2L' ? energeticos2L : energeticosCans).length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-4">
                       Nenhum energetico disponivel
@@ -378,20 +380,20 @@ export function ComboModal({ open, onOpenChange }: ComboModalProps) {
                       <button
                         key={product.id}
                         onClick={() => setSelectedEnergetico(selectedEnergetico?.id === product.id ? null : product)}
-                        className={`w-full flex items-center justify-between p-2 rounded-md text-sm text-left transition-colors hover-elevate ${
+                        className={`w-full flex items-center justify-between p-1.5 rounded-md text-xs text-left transition-colors hover-elevate ${
                           selectedEnergetico?.id === product.id 
                             ? 'bg-primary/10 border border-primary' 
                             : 'hover:bg-muted'
                         }`}
                         data-testid={`button-select-energetico-${product.id}`}
                       >
-                        <span className="flex-1 truncate pr-2">{product.name}</span>
-                        <span className="flex items-center gap-2 shrink-0">
-                          <span className="text-muted-foreground">
+                        <span className="flex-1 truncate pr-1">{product.name}</span>
+                        <span className="flex items-center gap-1 shrink-0">
+                          <span className="text-muted-foreground text-xs">
                             R$ {Number(product.salePrice).toFixed(2)}
                             {energeticoQuantity > 1 && ` x${energeticoQuantity}`}
                           </span>
-                          {selectedEnergetico?.id === product.id && <Check className="h-4 w-4 text-primary" />}
+                          {selectedEnergetico?.id === product.id && <Check className="h-3 w-3 text-primary" />}
                         </span>
                       </button>
                     ))
@@ -400,19 +402,19 @@ export function ComboModal({ open, onOpenChange }: ComboModalProps) {
               </ScrollArea>
             </div>
 
-            <div className="border-t pt-4 space-y-2">
-              <div className="flex justify-between text-sm text-muted-foreground">
+            <div className="border-t pt-2 space-y-1">
+              <div className="flex justify-between text-xs text-muted-foreground">
                 <span>Subtotal:</span>
                 <span className={totals.original > 0 ? 'line-through' : ''}>
                   R$ {totals.original.toFixed(2)}
                 </span>
               </div>
-              <div className="flex justify-between text-sm text-green-600 dark:text-green-400">
+              <div className="flex justify-between text-xs text-green-600 dark:text-green-400">
                 <span>Desconto (5%):</span>
                 <span>- R$ {(totals.original - totals.discounted).toFixed(2)}</span>
               </div>
-              <div className="flex justify-between text-lg font-bold">
-                <span>Total do Combo:</span>
+              <div className="flex justify-between text-sm font-bold">
+                <span>Total:</span>
                 <span className="text-primary">R$ {totals.discounted.toFixed(2)}</span>
               </div>
             </div>
