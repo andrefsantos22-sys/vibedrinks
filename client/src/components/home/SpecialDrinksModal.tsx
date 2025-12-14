@@ -217,8 +217,8 @@ export function SpecialDrinksModal({ open, onOpenChange }: SpecialDrinksModalPro
                             className="overflow-hidden border-2 border-purple-500 shadow-lg shadow-purple-500/20"
                             data-testid={`card-special-drink-${currentDrink.id}`}
                           >
-                            <div className="flex flex-col sm:flex-row">
-                              <div className="relative w-full sm:w-2/5 md:w-1/3 h-32 sm:h-36 overflow-hidden bg-gradient-to-br from-purple-900/20 to-pink-900/20 flex-shrink-0">
+                            <div className="flex flex-col">
+                              <div className="relative w-full aspect-square overflow-hidden bg-gradient-to-br from-purple-900/20 to-pink-900/20">
                                 {currentDrink.imageUrl ? (
                                   <img
                                     src={currentDrink.imageUrl}
@@ -228,7 +228,7 @@ export function SpecialDrinksModal({ open, onOpenChange }: SpecialDrinksModalPro
                                   />
                                 ) : (
                                   <div className="w-full h-full flex items-center justify-center">
-                                    <Wine className="h-10 w-10 sm:h-12 sm:w-12 text-purple-400/50" />
+                                    <Wine className="h-16 w-16 text-purple-400/50" />
                                   </div>
                                 )}
                                 
@@ -239,15 +239,15 @@ export function SpecialDrinksModal({ open, onOpenChange }: SpecialDrinksModalPro
                                 )}
 
                                 <Badge 
-                                  className="absolute top-1 right-1 bg-gradient-to-r from-purple-500 to-pink-500 border-none text-xs py-0.5 px-1.5"
+                                  className="absolute top-2 right-2 bg-gradient-to-r from-purple-500 to-pink-500 border-none text-xs py-0.5 px-2"
                                 >
                                   Especial
                                 </Badge>
                               </div>
                               
-                              <div className="flex-1 p-2 sm:p-3 flex flex-col justify-between min-h-[100px]">
+                              <div className="p-3 flex flex-col justify-between gap-2">
                                 <div>
-                                  <h3 className="font-semibold text-xs sm:text-sm line-clamp-2 mb-0.5">
+                                  <h3 className="font-semibold text-sm line-clamp-2 mb-0.5">
                                     {currentDrink.name}
                                   </h3>
                                   {currentDrink.description && (
@@ -257,8 +257,8 @@ export function SpecialDrinksModal({ open, onOpenChange }: SpecialDrinksModalPro
                                   )}
                                 </div>
                                 
-                                <div className="flex items-center justify-between gap-1 mt-1">
-                                  <span className="font-bold text-sm sm:text-base text-purple-400">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="font-bold text-base text-purple-400">
                                     {formatPrice(currentDrink.salePrice)}
                                   </span>
                                   
@@ -271,11 +271,11 @@ export function SpecialDrinksModal({ open, onOpenChange }: SpecialDrinksModalPro
                                           className="bg-gradient-to-r from-purple-500 to-pink-500 text-xs h-7"
                                           data-testid={`button-add-${currentDrink.id}`}
                                         >
-                                          <Plus className="h-3 w-3 mr-0.5" />
+                                          <Plus className="h-3 w-3 mr-1" />
                                           Add
                                         </Button>
                                       ) : (
-                                        <div className="flex items-center gap-0.5">
+                                        <div className="flex items-center gap-1">
                                           <Button
                                             size="icon"
                                             variant="outline"
@@ -308,18 +308,18 @@ export function SpecialDrinksModal({ open, onOpenChange }: SpecialDrinksModalPro
                       )}
                     </AnimatePresence>
 
-                    <div className="flex flex-col gap-3">
-                      <div className="flex items-center justify-center gap-1 sm:gap-2 px-2">
-                        <GripHorizontal className="h-4 w-4 sm:h-5 sm:w-5 text-purple-400/50 flex-shrink-0" />
-                        <div className="text-xs text-purple-400/60 text-center flex-1">
-                          Deslize para navegar
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center justify-center gap-0.5 px-2">
+                        <GripHorizontal className="h-2.5 w-2.5 text-purple-400/40 flex-shrink-0" />
+                        <div className="text-xs text-purple-400/50 text-center flex-1">
+                          Deslize
                         </div>
-                        <GripHorizontal className="h-4 w-4 sm:h-5 sm:w-5 text-purple-400/50 flex-shrink-0" />
+                        <GripHorizontal className="h-2.5 w-2.5 text-purple-400/40 flex-shrink-0" />
                       </div>
 
                       {specialDrinks.length > 1 && (
                         <div 
-                          className="flex gap-1 sm:gap-1.5 justify-center py-1"
+                          className="flex gap-0.5 justify-center py-0.5"
                           role="tablist"
                           aria-label="Navegacao do carrossel"
                         >
@@ -327,10 +327,10 @@ export function SpecialDrinksModal({ open, onOpenChange }: SpecialDrinksModalPro
                             <button
                               key={i}
                               onClick={() => setCurrentIndex(i)}
-                              className={`h-1.5 sm:h-2 rounded-full transition-all flex-shrink-0 ${
+                              className={`rounded-full transition-all flex-shrink-0 ${
                                 i === currentIndex 
-                                  ? 'bg-gradient-to-r from-purple-500 to-pink-500 w-4 sm:w-6' 
-                                  : 'bg-purple-500/30 w-1.5 sm:w-2'
+                                  ? 'bg-gradient-to-r from-purple-500 to-pink-500 h-1 w-3' 
+                                  : 'bg-purple-500/30 h-0.5 w-1'
                               }`}
                               role="tab"
                               aria-selected={i === currentIndex}
@@ -339,7 +339,7 @@ export function SpecialDrinksModal({ open, onOpenChange }: SpecialDrinksModalPro
                             />
                           ))}
                           {specialDrinks.length > 10 && (
-                            <span className="text-xs text-muted-foreground ml-1">+{specialDrinks.length - 10}</span>
+                            <span className="text-xs text-muted-foreground ml-0.5">+{specialDrinks.length - 10}</span>
                           )}
                         </div>
                       )}
