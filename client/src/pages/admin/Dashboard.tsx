@@ -50,7 +50,10 @@ import {
   Save,
   Camera,
   Upload,
-  Image
+  Image,
+  History,
+  ClipboardList,
+  CheckCircle2
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { useRef} from 'react';
@@ -72,7 +75,7 @@ import { useNotificationSound } from '@/hooks/use-notification-sound';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { ProductImageUploader } from '@/components/ProductImageUploader';
 import { ExpandableOrderCard } from '@/components/ExpandableOrderCard';
-import type { Order, Product, Category, Motoboy, User, Settings as SettingsType, OrderItem, Address, DeliveryZone, Neighborhood } from '@shared/schema';
+import type { Order, Product, Category, Motoboy, User, Settings as SettingsType, OrderItem, Address, DeliveryZone, Neighborhood, ShoppingList, ShoppingListItem } from '@shared/schema';
 import { ORDER_STATUS_LABELS, PAYMENT_METHOD_LABELS, ORDER_TYPE_LABELS, type OrderStatus, type PaymentMethod, type OrderType } from '@shared/schema';
 
 const tabs = [
@@ -1171,12 +1174,89 @@ interface LowStockData {
   products: LowStockProduct[];
 }
 
+interface ShoppingListWithItems extends ShoppingList {
+  items: ShoppingListItem[];
+}
+
 function EstoqueTab() {
   const [showReport, setShowReport] = useState(false);
   const [showLowStock, setShowLowStock] = useState(false);
+  const [showActiveList, setShowActiveList] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
   const { toast } = useToast();
+
+  const { data: activeShoppingList, isLoading: isLoadingActiveList, refetch: refetchActiveList } = useQuery<ShoppingListWithItems | null>({
+    queryKey: ['/api/shopping-lists/active'],
+    queryFn: async () => {
+      const res = await fetch('/api/shopping-lists/active');
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data || null;
+    },
+  });
+
+  const { data: shoppingListHistory = [], isLoading: isLoadingHistory } = useQuery<ShoppingList[]>({
+    queryKey: ['/api/shopping-lists'],
+    enabled: showHistory,
+  });
+
+  const createShoppingListMutation = useMutation({
+    mutationFn: async (products: { productId: string; productName: string; categoryName: string; suggestedQuantity: number; unitCost: number }[]) => {
+      return apiRequest('POST', '/api/shopping-lists', { products });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/shopping-lists/active'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/shopping-lists'] });
+      setShowLowStock(false);
+      setShowActiveList(true);
+      setSelectedProducts(new Set());
+      toast({ title: 'Lista de compras criada!' });
+    },
+    onError: () => {
+      toast({ title: 'Erro ao criar lista de compras', variant: 'destructive' });
+    },
+  });
+
+  const markItemPurchasedMutation = useMutation({
+    mutationFn: async ({ listId, itemId, actualQuantity }: { listId: string; itemId: string; actualQuantity?: number }) => {
+      return apiRequest('PATCH', `/api/shopping-lists/${listId}/items/${itemId}/purchase`, { actualQuantity });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/shopping-lists/active'] });
+    },
+  });
+
+  const finalizeShoppingListMutation = useMutation({
+    mutationFn: async (listId: string) => {
+      return apiRequest('PATCH', `/api/shopping-lists/${listId}/complete`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/shopping-lists/active'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/shopping-lists'] });
+      setShowActiveList(false);
+      toast({ title: 'Lista de compras finalizada!' });
+    },
+    onError: () => {
+      toast({ title: 'Erro ao finalizar lista', variant: 'destructive' });
+    },
+  });
+
+  const deleteShoppingListMutation = useMutation({
+    mutationFn: async (listId: string) => {
+      return apiRequest('DELETE', `/api/shopping-lists/${listId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/shopping-lists/active'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/shopping-lists'] });
+      setShowActiveList(false);
+      toast({ title: 'Lista excluida!' });
+    },
+    onError: () => {
+      toast({ title: 'Erro ao excluir lista', variant: 'destructive' });
+    },
+  });
 
   const { data: categories = [] } = useQuery<Category[]>({
     queryKey: ['/api/categories'],
@@ -1195,6 +1275,7 @@ function EstoqueTab() {
   const handleGenerateReport = () => {
     setShowReport(true);
     setShowLowStock(false);
+    setShowActiveList(false);
     if (showReport) {
       refetchReport();
     }
@@ -1203,10 +1284,60 @@ function EstoqueTab() {
   const handleShowLowStock = () => {
     setShowLowStock(true);
     setShowReport(false);
+    setShowActiveList(false);
     setCategoryFilter('all');
     setSelectedProducts(new Set());
     if (showLowStock) {
       refetchLowStock();
+    }
+  };
+
+  const handleShowActiveList = () => {
+    setShowActiveList(true);
+    setShowReport(false);
+    setShowLowStock(false);
+    refetchActiveList();
+  };
+
+  const handleCreateShoppingList = () => {
+    if (selectedProducts.size === 0) {
+      toast({ title: 'Selecione produtos para a lista', variant: 'destructive' });
+      return;
+    }
+    
+    const productsToAdd = filteredLowStockProducts
+      .filter(p => selectedProducts.has(p.id))
+      .map(p => ({
+        productId: p.id,
+        productName: p.name,
+        categoryName: p.categoryName,
+        suggestedQuantity: p.suggestedPurchase,
+        unitCost: p.costPrice,
+      }));
+    
+    createShoppingListMutation.mutate(productsToAdd);
+  };
+
+  const handleMarkItemPurchased = (itemId: string, actualQuantity?: number) => {
+    if (!activeShoppingList) return;
+    markItemPurchasedMutation.mutate({ 
+      listId: activeShoppingList.id, 
+      itemId, 
+      actualQuantity 
+    });
+  };
+
+  const handleFinalizeList = () => {
+    if (!activeShoppingList) return;
+    if (confirm('Deseja finalizar esta lista de compras? Os itens comprados serao adicionados ao estoque.')) {
+      finalizeShoppingListMutation.mutate(activeShoppingList.id);
+    }
+  };
+
+  const handleDeleteList = () => {
+    if (!activeShoppingList) return;
+    if (confirm('Deseja excluir esta lista? Os itens NAO serao adicionados ao estoque.')) {
+      deleteShoppingListMutation.mutate(activeShoppingList.id);
     }
   };
 
@@ -1347,12 +1478,61 @@ function EstoqueTab() {
           </Button>
           <Button variant="outline" onClick={handleShowLowStock} data-testid="button-show-low-stock">
             <AlertTriangle className="w-4 h-4 mr-2" />
-            Lista de Compras
+            Sugestao de Compras
           </Button>
+          {activeShoppingList && (
+            <Button variant="default" onClick={handleShowActiveList} data-testid="button-show-active-list">
+              <ClipboardList className="w-4 h-4 mr-2" />
+              Lista Ativa ({activeShoppingList.purchasedItems}/{activeShoppingList.totalItems})
+            </Button>
+          )}
+          <Dialog open={showHistory} onOpenChange={setShowHistory}>
+            <DialogTrigger asChild>
+              <Button variant="ghost" size="icon" data-testid="button-show-history">
+                <History className="w-4 h-4" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Historico de Listas de Compras</DialogTitle>
+              </DialogHeader>
+              {isLoadingHistory ? (
+                <div className="py-8 text-center text-muted-foreground">Carregando...</div>
+              ) : shoppingListHistory.filter(l => l.status === 'completed').length === 0 ? (
+                <div className="py-8 text-center text-muted-foreground">Nenhuma lista finalizada</div>
+              ) : (
+                <div className="space-y-3">
+                  {shoppingListHistory.filter(l => l.status === 'completed').map(list => (
+                    <Card key={list.id}>
+                      <CardContent className="py-4">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div>
+                            <p className="font-medium">Lista de {formatDate(list.createdAt)}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {list.purchasedItems} de {list.totalItems} itens comprados
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-primary">{formatCurrency(Number(list.purchasedCost))}</p>
+                            <p className="text-xs text-muted-foreground">gasto</p>
+                          </div>
+                        </div>
+                        {list.completedAt && (
+                          <p className="text-xs text-muted-foreground mt-2">
+                            Finalizada em {formatDate(list.completedAt)}
+                          </p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
-      {!showReport && !showLowStock && (
+      {!showReport && !showLowStock && !showActiveList && (
         <Card>
           <CardContent className="py-12 text-center text-muted-foreground">
             <Warehouse className="w-16 h-16 mx-auto mb-4 text-primary/50" />
@@ -1666,8 +1846,158 @@ function EstoqueTab() {
                   )}
                 </CardContent>
               </Card>
+
+              {selectedProducts.size > 0 && !activeShoppingList && (
+                <div className="flex justify-end">
+                  <Button 
+                    onClick={handleCreateShoppingList}
+                    disabled={createShoppingListMutation.isPending}
+                    data-testid="button-create-shopping-list"
+                  >
+                    <ClipboardList className="w-4 h-4 mr-2" />
+                    {createShoppingListMutation.isPending ? 'Criando...' : `Iniciar Lista de Compras (${selectedProducts.size} itens)`}
+                  </Button>
+                </div>
+              )}
+
+              {activeShoppingList && (
+                <Card className="border-primary/50">
+                  <CardContent className="py-4">
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                      <div className="flex items-center gap-2">
+                        <ClipboardList className="w-5 h-5 text-primary" />
+                        <span className="font-medium">Lista ativa em andamento</span>
+                        <Badge className="bg-primary/20 text-primary">
+                          {activeShoppingList.purchasedItems}/{activeShoppingList.totalItems} comprados
+                        </Badge>
+                      </div>
+                      <Button onClick={handleShowActiveList} data-testid="button-view-active-list">
+                        Ver Lista Ativa
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </>
           )}
+        </div>
+      )}
+
+      {showActiveList && activeShoppingList && (
+        <div className="space-y-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h3 className="text-xl font-semibold">Lista de Compras Ativa</h3>
+              <p className="text-sm text-muted-foreground">Criada em {formatDate(activeShoppingList.createdAt)}</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button 
+                variant="outline" 
+                onClick={handleDeleteList}
+                disabled={deleteShoppingListMutation.isPending}
+                data-testid="button-delete-list"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Descartar
+              </Button>
+              <Button 
+                onClick={handleFinalizeList}
+                disabled={finalizeShoppingListMutation.isPending || activeShoppingList.purchasedItems === 0}
+                data-testid="button-finalize-list"
+              >
+                <CheckCircle2 className="w-4 h-4 mr-2" />
+                {finalizeShoppingListMutation.isPending ? 'Finalizando...' : 'Finalizar Lista'}
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Itens Comprados</CardTitle>
+                <Check className="w-4 h-4 text-green-500" />
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-green-500">{activeShoppingList.purchasedItems}</p>
+                <p className="text-xs text-muted-foreground">de {activeShoppingList.totalItems} itens</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Custo Estimado</CardTitle>
+                <DollarSign className="w-4 h-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold">{formatCurrency(Number(activeShoppingList.totalCost))}</p>
+                <p className="text-xs text-muted-foreground">total previsto</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Gasto Atual</CardTitle>
+                <DollarSign className="w-4 h-4 text-primary" />
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-primary">{formatCurrency(Number(activeShoppingList.purchasedCost))}</p>
+                <p className="text-xs text-muted-foreground">itens comprados</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Itens da Lista</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="border-b border-border/30">
+                    <tr>
+                      <th className="text-center p-4 text-muted-foreground font-medium w-16">Comprado</th>
+                      <th className="text-left p-4 text-muted-foreground font-medium">Produto</th>
+                      <th className="text-left p-4 text-muted-foreground font-medium">Categoria</th>
+                      <th className="text-right p-4 text-muted-foreground font-medium">Qtd Sugerida</th>
+                      <th className="text-right p-4 text-muted-foreground font-medium">Custo Unit.</th>
+                      <th className="text-right p-4 text-muted-foreground font-medium">Custo Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activeShoppingList.items?.map(item => (
+                      <tr 
+                        key={item.id} 
+                        className={`border-b border-border/20 last:border-0 cursor-pointer hover-elevate ${item.isPurchased ? 'bg-green-500/10' : ''}`}
+                        onClick={() => !item.isPurchased && handleMarkItemPurchased(item.id, item.suggestedQuantity)}
+                        data-testid={`row-shopping-item-${item.id}`}
+                      >
+                        <td className="text-center p-4">
+                          <input 
+                            type="checkbox" 
+                            checked={item.isPurchased || false}
+                            onChange={() => !item.isPurchased && handleMarkItemPurchased(item.id, item.suggestedQuantity)}
+                            className="w-5 h-5 rounded border-primary/30"
+                            disabled={item.isPurchased || markItemPurchasedMutation.isPending}
+                            data-testid={`checkbox-item-${item.id}`}
+                          />
+                        </td>
+                        <td className={`p-4 font-medium ${item.isPurchased ? 'line-through text-muted-foreground' : ''}`}>{item.productName}</td>
+                        <td className="p-4 text-muted-foreground">{item.categoryName}</td>
+                        <td className="p-4 text-right font-medium">{item.actualQuantity || item.suggestedQuantity}</td>
+                        <td className="p-4 text-right">{formatCurrency(Number(item.unitCost))}</td>
+                        <td className="p-4 text-right font-medium">{formatCurrency(Number(item.totalCost))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {(!activeShoppingList.items || activeShoppingList.items.length === 0) && (
+                <div className="py-12 text-center text-muted-foreground">
+                  Nenhum item na lista
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>

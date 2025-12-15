@@ -1873,5 +1873,107 @@ export async function registerRoutes(
     }
   });
 
+  // =============================================
+  // Shopping Lists API
+  // =============================================
+  app.get("/api/shopping-lists", async (_req, res) => {
+    const lists = await storage.getShoppingLists();
+    res.json(lists);
+  });
+
+  app.get("/api/shopping-lists/active", async (_req, res) => {
+    const list = await storage.getActiveShoppingList();
+    if (!list) return res.json(null);
+    const items = await storage.getShoppingListItems(list.id);
+    res.json({ ...list, items });
+  });
+
+  app.get("/api/shopping-lists/:id", async (req, res) => {
+    const list = await storage.getShoppingList(req.params.id);
+    if (!list) return res.status(404).json({ error: "Lista nao encontrada" });
+    const items = await storage.getShoppingListItems(list.id);
+    res.json({ ...list, items });
+  });
+
+  app.post("/api/shopping-lists", async (req, res) => {
+    try {
+      const { products } = req.body;
+      
+      // Create the shopping list
+      const list = await storage.createShoppingList({
+        status: "active",
+        totalItems: products.length,
+        purchasedItems: 0,
+        totalCost: products.reduce((sum: number, p: any) => sum + p.estimatedPurchaseCost, 0).toString(),
+        purchasedCost: "0",
+      });
+      
+      // Create items for each product
+      for (const product of products) {
+        await storage.createShoppingListItem({
+          listId: list.id,
+          productId: product.id,
+          productName: product.name,
+          categoryName: product.categoryName,
+          suggestedQuantity: product.suggestedPurchase,
+          unitCost: product.costPrice.toString(),
+          totalCost: product.estimatedPurchaseCost.toString(),
+          isPurchased: false,
+        });
+      }
+      
+      const items = await storage.getShoppingListItems(list.id);
+      res.status(201).json({ ...list, items });
+    } catch (error) {
+      console.error("Error creating shopping list:", error);
+      res.status(500).json({ error: "Erro ao criar lista de compras" });
+    }
+  });
+
+  app.patch("/api/shopping-lists/:id/items/:itemId/purchase", async (req, res) => {
+    try {
+      const { purchased, actualQuantity } = req.body;
+      const item = await storage.markItemPurchased(req.params.itemId, purchased, actualQuantity);
+      if (!item) return res.status(404).json({ error: "Item nao encontrado" });
+      
+      // Update list totals
+      const items = await storage.getShoppingListItems(req.params.id);
+      const purchasedItems = items.filter(i => i.isPurchased).length;
+      const purchasedCost = items.filter(i => i.isPurchased).reduce((sum, i) => sum + parseFloat(i.totalCost), 0);
+      
+      await storage.updateShoppingList(req.params.id, {
+        purchasedItems,
+        purchasedCost: purchasedCost.toString(),
+      });
+      
+      res.json(item);
+    } catch (error) {
+      console.error("Error marking item purchased:", error);
+      res.status(500).json({ error: "Erro ao marcar item" });
+    }
+  });
+
+  app.patch("/api/shopping-lists/:id/complete", async (req, res) => {
+    try {
+      const list = await storage.completeShoppingList(req.params.id);
+      if (!list) return res.status(404).json({ error: "Lista nao encontrada" });
+      res.json(list);
+    } catch (error) {
+      console.error("Error completing shopping list:", error);
+      res.status(500).json({ error: "Erro ao finalizar lista" });
+    }
+  });
+
+  app.delete("/api/shopping-lists/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteShoppingList(req.params.id);
+      if (!deleted) return res.status(404).json({ error: "Lista nao encontrada" });
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting shopping list:", error);
+      res.status(500).json({ error: "Erro ao excluir lista" });
+    }
+  });
+
   return httpServer;
 }

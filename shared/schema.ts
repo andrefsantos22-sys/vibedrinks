@@ -170,6 +170,32 @@ export const passwordResetRequests = pgTable("password_reset_requests", {
   completedBy: varchar("completed_by", { length: 36 }),
 });
 
+export const shoppingLists = pgTable("shopping_lists", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  status: text("status").notNull().default("active"),
+  totalItems: integer("total_items").notNull().default(0),
+  purchasedItems: integer("purchased_items").notNull().default(0),
+  totalCost: decimal("total_cost", { precision: 10, scale: 2 }).notNull().default("0"),
+  purchasedCost: decimal("purchased_cost", { precision: 10, scale: 2 }).notNull().default("0"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+});
+
+export const shoppingListItems = pgTable("shopping_list_items", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  listId: varchar("list_id", { length: 36 }).notNull().references(() => shoppingLists.id, { onDelete: "cascade" }),
+  productId: varchar("product_id", { length: 36 }).notNull().references(() => products.id),
+  productName: text("product_name").notNull(),
+  categoryName: text("category_name").notNull(),
+  suggestedQuantity: integer("suggested_quantity").notNull(),
+  actualQuantity: integer("actual_quantity"),
+  unitCost: decimal("unit_cost", { precision: 10, scale: 2 }).notNull(),
+  totalCost: decimal("total_cost", { precision: 10, scale: 2 }).notNull(),
+  isPurchased: boolean("is_purchased").default(false),
+  purchasedAt: timestamp("purchased_at"),
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
 export const insertAddressSchema = createInsertSchema(addresses).omit({ id: true });
 export const insertCategorySchema = createInsertSchema(categories).omit({ id: true, createdAt: true });
@@ -184,6 +210,8 @@ export const insertDeliveryZoneSchema = createInsertSchema(deliveryZones).omit({
 export const insertNeighborhoodSchema = createInsertSchema(neighborhoods).omit({ id: true });
 export const insertTrendingProductSchema = createInsertSchema(trendingProducts).omit({ id: true, createdAt: true });
 export const insertPasswordResetRequestSchema = createInsertSchema(passwordResetRequests).omit({ id: true, createdAt: true, completedAt: true, completedBy: true });
+export const insertShoppingListSchema = createInsertSchema(shoppingLists).omit({ id: true, createdAt: true, completedAt: true });
+export const insertShoppingListItemSchema = createInsertSchema(shoppingListItems).omit({ id: true, purchasedAt: true });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -213,6 +241,10 @@ export type InsertTrendingProduct = z.infer<typeof insertTrendingProductSchema>;
 export type TrendingProduct = typeof trendingProducts.$inferSelect;
 export type InsertPasswordResetRequest = z.infer<typeof insertPasswordResetRequestSchema>;
 export type PasswordResetRequest = typeof passwordResetRequests.$inferSelect;
+export type InsertShoppingList = z.infer<typeof insertShoppingListSchema>;
+export type ShoppingList = typeof shoppingLists.$inferSelect;
+export type InsertShoppingListItem = z.infer<typeof insertShoppingListItemSchema>;
+export type ShoppingListItem = typeof shoppingListItems.$inferSelect;
 
 export type CartItem = {
   productId: string;

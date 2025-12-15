@@ -3,7 +3,8 @@ import { eq, desc, inArray, and, gte, lte } from "drizzle-orm";
 import { db } from "./db";
 import { 
   users, addresses, categories, products, orders, orderItems, 
-  banners, motoboys, stockLogs, settings, deliveryZones, neighborhoods, trendingProducts, passwordResetRequests
+  banners, motoboys, stockLogs, settings, deliveryZones, neighborhoods, trendingProducts, passwordResetRequests,
+  shoppingLists, shoppingListItems
 } from "@shared/schema";
 import bcrypt from "bcrypt";
 import type { 
@@ -20,7 +21,9 @@ import type {
   DeliveryZone, InsertDeliveryZone,
   Neighborhood, InsertNeighborhood,
   TrendingProduct, InsertTrendingProduct,
-  PasswordResetRequest, InsertPasswordResetRequest
+  PasswordResetRequest, InsertPasswordResetRequest,
+  ShoppingList, InsertShoppingList,
+  ShoppingListItem, InsertShoppingListItem
 } from "@shared/schema";
 
 export interface IStorage {
@@ -108,6 +111,20 @@ export interface IStorage {
   getPendingPasswordResetRequests(): Promise<PasswordResetRequest[]>;
   createPasswordResetRequest(request: InsertPasswordResetRequest): Promise<PasswordResetRequest>;
   completePasswordResetRequest(id: string, completedBy: string): Promise<PasswordResetRequest | undefined>;
+
+  getShoppingLists(): Promise<ShoppingList[]>;
+  getActiveShoppingList(): Promise<ShoppingList | undefined>;
+  getShoppingList(id: string): Promise<ShoppingList | undefined>;
+  createShoppingList(list: InsertShoppingList): Promise<ShoppingList>;
+  updateShoppingList(id: string, list: Partial<ShoppingList>): Promise<ShoppingList | undefined>;
+  completeShoppingList(id: string): Promise<ShoppingList | undefined>;
+  deleteShoppingList(id: string): Promise<boolean>;
+  
+  getShoppingListItems(listId: string): Promise<ShoppingListItem[]>;
+  createShoppingListItem(item: InsertShoppingListItem): Promise<ShoppingListItem>;
+  updateShoppingListItem(id: string, item: Partial<ShoppingListItem>): Promise<ShoppingListItem | undefined>;
+  markItemPurchased(id: string, purchased: boolean, actualQuantity?: number): Promise<ShoppingListItem | undefined>;
+  deleteShoppingListItem(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -694,6 +711,74 @@ export class DatabaseStorage implements IStorage {
       .where(eq(passwordResetRequests.id, id))
       .returning();
     return updated || undefined;
+  }
+
+  async getShoppingLists(): Promise<ShoppingList[]> {
+    return await db.select().from(shoppingLists).orderBy(desc(shoppingLists.createdAt));
+  }
+
+  async getActiveShoppingList(): Promise<ShoppingList | undefined> {
+    const [list] = await db.select().from(shoppingLists).where(eq(shoppingLists.status, "active")).orderBy(desc(shoppingLists.createdAt)).limit(1);
+    return list || undefined;
+  }
+
+  async getShoppingList(id: string): Promise<ShoppingList | undefined> {
+    const [list] = await db.select().from(shoppingLists).where(eq(shoppingLists.id, id));
+    return list || undefined;
+  }
+
+  async createShoppingList(list: InsertShoppingList): Promise<ShoppingList> {
+    const [created] = await db.insert(shoppingLists).values({ id: randomUUID(), ...list }).returning();
+    return created;
+  }
+
+  async updateShoppingList(id: string, list: Partial<ShoppingList>): Promise<ShoppingList | undefined> {
+    const [updated] = await db.update(shoppingLists).set(list).where(eq(shoppingLists.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async completeShoppingList(id: string): Promise<ShoppingList | undefined> {
+    const [updated] = await db.update(shoppingLists)
+      .set({ status: "completed", completedAt: new Date() })
+      .where(eq(shoppingLists.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteShoppingList(id: string): Promise<boolean> {
+    const result = await db.delete(shoppingLists).where(eq(shoppingLists.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async getShoppingListItems(listId: string): Promise<ShoppingListItem[]> {
+    return await db.select().from(shoppingListItems).where(eq(shoppingListItems.listId, listId));
+  }
+
+  async createShoppingListItem(item: InsertShoppingListItem): Promise<ShoppingListItem> {
+    const [created] = await db.insert(shoppingListItems).values({ id: randomUUID(), ...item }).returning();
+    return created;
+  }
+
+  async updateShoppingListItem(id: string, item: Partial<ShoppingListItem>): Promise<ShoppingListItem | undefined> {
+    const [updated] = await db.update(shoppingListItems).set(item).where(eq(shoppingListItems.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async markItemPurchased(id: string, purchased: boolean, actualQuantity?: number): Promise<ShoppingListItem | undefined> {
+    const updateData: Partial<ShoppingListItem> = {
+      isPurchased: purchased,
+      purchasedAt: purchased ? new Date() : null,
+    };
+    if (actualQuantity !== undefined) {
+      updateData.actualQuantity = actualQuantity;
+    }
+    const [updated] = await db.update(shoppingListItems).set(updateData).where(eq(shoppingListItems.id, id)).returning();
+    return updated || undefined;
+  }
+
+  async deleteShoppingListItem(id: string): Promise<boolean> {
+    const result = await db.delete(shoppingListItems).where(eq(shoppingListItems.id, id));
+    return (result.rowCount ?? 0) > 0;
   }
 }
 
