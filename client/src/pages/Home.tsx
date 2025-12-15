@@ -81,6 +81,7 @@ export default function Home() {
         
         <ProductGrid 
           products={displayProducts}
+          categories={categories}
           isLoading={productsLoading}
           selectedCategory={effectiveCategory}
         />

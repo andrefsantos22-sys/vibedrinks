@@ -7,12 +7,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { useCart } from '@/lib/cart';
 import { motion } from 'framer-motion';
 import type { Product } from '@shared/schema';
+import { isPreparedCategoryName } from '@shared/schema';
 
 interface ProductCardProps {
   product: Product;
+  categoryName?: string;
 }
 
-export function ProductCard({ product }: ProductCardProps) {
+export function ProductCard({ product, categoryName }: ProductCardProps) {
   const { items, addItem, updateQuantity } = useCart();
   const [showStockAlert, setShowStockAlert] = useState(false);
   const cartItem = items.find(item => item.productId === product.id);
@@ -25,8 +27,8 @@ export function ProductCard({ product }: ProductCardProps) {
     }).format(Number(price));
   };
 
-  // Produtos preparados não têm controle de estoque
-  const isPreparedProduct = product.isPrepared === true;
+  // Produtos preparados não têm controle de estoque - check both isPrepared flag and category name
+  const isPreparedProduct = product.isPrepared === true || (categoryName ? isPreparedCategoryName(categoryName) : false);
   const isOutOfStock = !isPreparedProduct && product.stock <= 0;
   const isLowStock = !isPreparedProduct && product.stock > 0 && product.stock <= 5;
 

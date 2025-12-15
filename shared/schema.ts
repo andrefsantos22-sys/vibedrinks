@@ -72,6 +72,7 @@ export const orders = pgTable("orders", {
   changeFor: decimal("change_for", { precision: 10, scale: 2 }),
   notes: text("notes"),
   customerName: text("customer_name"),
+  salesperson: text("salesperson"),
   motoboyId: varchar("motoboy_id", { length: 36 }).references(() => motoboys.id),
   createdAt: timestamp("created_at").defaultNow(),
   acceptedAt: timestamp("accepted_at"),
@@ -299,3 +300,32 @@ export const ORDER_TYPE_LABELS: Record<OrderType, string> = {
   delivery: "Delivery",
   counter: "Balcao",
 };
+
+export type Salesperson = "balconista_1" | "balconista_2" | "balconista_3" | "balconista_4";
+
+export const SALESPERSON_LABELS: Record<Salesperson, string> = {
+  balconista_1: "Balconista 1",
+  balconista_2: "Balconista 2",
+  balconista_3: "Balconista 3",
+  balconista_4: "Balconista 4",
+};
+
+export const PREPARED_CATEGORIES = [
+  "CAIPIRINHAS",
+  "DOSES",
+  "BATIDAS",
+  "COPAO",
+  "DRINKS ESPECIAIS",
+  "CAIPI ICES",
+  "DRINKS",
+  "COPOS",
+];
+
+export function isPreparedCategoryName(categoryName: string): boolean {
+  const normalizedName = categoryName.toUpperCase().trim();
+  return PREPARED_CATEGORIES.some(cat => 
+    normalizedName === cat || 
+    normalizedName.includes(cat) || 
+    cat.includes(normalizedName)
+  );
+}

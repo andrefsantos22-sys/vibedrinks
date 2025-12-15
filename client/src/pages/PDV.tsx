@@ -31,7 +31,8 @@ import { useAuth } from '@/lib/auth';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import type { Product, Category } from '@shared/schema';
-import { type PaymentMethod } from '@shared/schema';
+import { type PaymentMethod, type Salesperson, SALESPERSON_LABELS, isPreparedCategoryName } from '@shared/schema';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface CartItem {
   product: Product;
@@ -55,7 +56,7 @@ export default function PDV() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [customerName, setCustomerName] = useState('');
+  const [salesperson, setSalesperson] = useState<Salesperson | null>(null);
   const [notes, setNotes] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
   const [changeFor, setChangeFor] = useState('');
@@ -81,7 +82,7 @@ export default function PDV() {
       queryClient.invalidateQueries({ queryKey: ['/api/products'] });
       toast({ title: 'Pedido criado com sucesso!' });
       setCart([]);
-      setCustomerName('');
+      setSalesperson(null);
       setNotes('');
       setPaymentMethod(null);
       setChangeFor('');
@@ -110,11 +111,18 @@ export default function PDV() {
     return matchesSearch && matchesCategory;
   });
 
+  const isProductPrepared = (product: Product): boolean => {
+    if (product.isPrepared) return true;
+    const category = categories.find(c => c.id === product.categoryId);
+    return category ? isPreparedCategoryName(category.name) : false;
+  };
+
   const addToCart = (product: Product) => {
     const existingItem = cart.find(item => item.product.id === product.id);
     const currentQty = existingItem?.quantity ?? 0;
+    const isPrepared = isProductPrepared(product);
     
-    if (product.stock <= 0 || currentQty >= product.stock) {
+    if (!isPrepared && (product.stock <= 0 || currentQty >= product.stock)) {
       setStockAlertProduct(product);
       return;
     }
@@ -134,7 +142,9 @@ export default function PDV() {
 
   const updateQuantity = (productId: string, delta: number) => {
     const item = cart.find(i => i.product.id === productId);
-    if (item && delta > 0 && item.quantity >= item.product.stock) {
+    const isPrepared = item ? isProductPrepared(item.product) : false;
+    
+    if (item && delta > 0 && !isPrepared && item.quantity >= item.product.stock) {
       setStockAlertProduct(item.product);
       return;
     }
@@ -164,6 +174,10 @@ export default function PDV() {
       toast({ title: 'Carrinho vazio', variant: 'destructive' });
       return;
     }
+    if (!salesperson) {
+      toast({ title: 'Selecione o balconista', variant: 'destructive' });
+      return;
+    }
     setIsPaymentDialogOpen(true);
   };
 
@@ -184,7 +198,8 @@ export default function PDV() {
       paymentMethod,
       changeFor: paymentMethod === 'cash' && changeFor ? changeFor : null,
       notes: notes || null,
-      customerName: customerName || 'Cliente Balcao',
+      customerName: salesperson ? SALESPERSON_LABELS[salesperson] : 'Balconista',
+      salesperson: salesperson || null,
       items: cart.map(item => ({
         productId: item.product.id,
         productName: item.product.name,
@@ -221,13 +236,21 @@ export default function PDV() {
       <div className="p-3 border-b border-border">
         <div className="flex items-center gap-2">
           <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-          <Input
-            placeholder="Nome do cliente"
-            value={customerName}
-            onChange={(e) => setCustomerName(e.target.value)}
-            className="bg-secondary border-primary/30 text-sm"
-            data-testid="input-customer-name"
-          />
+          <Select 
+            value={salesperson || undefined} 
+            onValueChange={(value) => setSalesperson(value as Salesperson)}
+          >
+            <SelectTrigger className="bg-secondary border-primary/30 text-sm" data-testid="select-salesperson">
+              <SelectValue placeholder="Selecione o Balconista" />
+            </SelectTrigger>
+            <SelectContent>
+              {(Object.entries(SALESPERSON_LABELS) as [Salesperson, string][]).map(([key, label]) => (
+                <SelectItem key={key} value={key} data-testid={`option-${key}`}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -432,22 +455,36 @@ export default function PDV() {
 
           <div className="flex-1 overflow-auto p-2 sm:p-3 pt-0">
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
-              {filteredProducts.map((product) => (
-                <Card
-                  key={product.id}
-                  className="cursor-pointer hover-elevate active-elevate-2"
-                  onClick={() => addToCart(product)}
-                  data-testid={`card-product-${product.id}`}
-                >
-                  <CardContent className="p-2 sm:p-3">
-                    <h3 className="font-medium text-xs sm:text-sm mb-1 line-clamp-2 min-h-[2rem]">{product.name}</h3>
-                    <p className="text-primary font-bold text-sm sm:text-base">{formatCurrency(product.salePrice)}</p>
-                    <Badge variant="secondary" className="mt-1 text-xs">
-                      {product.stock}
-                    </Badge>
-                  </CardContent>
-                </Card>
-              ))}
+              {filteredProducts.map((product) => {
+                const isPrepared = isProductPrepared(product);
+                const isOutOfStock = !isPrepared && product.stock <= 0;
+                return (
+                  <Card
+                    key={product.id}
+                    className={`cursor-pointer hover-elevate active-elevate-2 ${isOutOfStock ? 'opacity-50' : ''}`}
+                    onClick={() => !isOutOfStock && addToCart(product)}
+                    data-testid={`card-product-${product.id}`}
+                  >
+                    <CardContent className="p-2 sm:p-3">
+                      <h3 className="font-medium text-xs sm:text-sm mb-1 line-clamp-2 min-h-[2rem]">{product.name}</h3>
+                      <p className="text-primary font-bold text-sm sm:text-base">{formatCurrency(product.salePrice)}</p>
+                      {isPrepared ? (
+                        <Badge variant="default" className="mt-1 text-xs bg-green-600">
+                          Disponivel
+                        </Badge>
+                      ) : isOutOfStock ? (
+                        <Badge variant="destructive" className="mt-1 text-xs">
+                          Esgotado
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="mt-1 text-xs">
+                          {product.stock}
+                        </Badge>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           </div>
         </main>

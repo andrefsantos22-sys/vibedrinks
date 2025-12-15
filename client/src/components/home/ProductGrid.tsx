@@ -5,17 +5,18 @@ import { Button } from '@/components/ui/button';
 import { ProductCard } from './ProductCard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { motion } from 'framer-motion';
-import type { Product } from '@shared/schema';
+import type { Product, Category } from '@shared/schema';
 
 type GridColumns = 1 | 2 | 4;
 
 interface ProductGridProps {
   products: Product[];
+  categories?: Category[];
   isLoading?: boolean;
   selectedCategory: string | null;
 }
 
-export function ProductGrid({ products, isLoading, selectedCategory }: ProductGridProps) {
+export function ProductGrid({ products, categories = [], isLoading, selectedCategory }: ProductGridProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [gridColumns, setGridColumns] = useState<GridColumns>(2);
 
@@ -167,9 +168,16 @@ export function ProductGrid({ products, isLoading, selectedCategory }: ProductGr
             initial="hidden"
             animate="show"
           >
-            {filteredProducts.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
+            {filteredProducts.map((product) => {
+              const category = categories.find(c => c.id === product.categoryId);
+              return (
+                <ProductCard 
+                  key={product.id} 
+                  product={product} 
+                  categoryName={category?.name}
+                />
+              );
+            })}
           </motion.div>
         )}
       </div>
