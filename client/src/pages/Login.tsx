@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth';
 import { apiRequest } from '@/lib/queryClient';
@@ -33,6 +34,15 @@ export default function Login() {
   const [complement, setComplement] = useState('');
   const [selectedNeighborhood, setSelectedNeighborhood] = useState('');
   const [notes, setNotes] = useState('');
+
+  const [showForgotPasswordDialog, setShowForgotPasswordDialog] = useState(false);
+  const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
+  
+  const [showChangePasswordDialog, setShowChangePasswordDialog] = useState(false);
+  const [changePasswordLoading, setChangePasswordLoading] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [pendingLoginData, setPendingLoginData] = useState<{ user: any; address: any } | null>(null);
 
   const groupedNeighborhoods = useMemo(() => {
     const zones: DeliveryZoneType[] = ['S', 'A', 'B', 'C', 'D'];
@@ -66,6 +76,16 @@ export default function Login() {
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/\D/g, '').slice(0, 6);
     setPassword(value);
+  };
+
+  const handleNewPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+    setNewPassword(value);
+  };
+
+  const handleConfirmPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+    setConfirmPassword(value);
   };
 
   const handleCheckPhone = async () => {
@@ -119,15 +139,20 @@ export default function Login() {
       const data = await response.json();
       
       if (data.success) {
-        login(data.user, 'customer');
-        if (data.address) {
-          setAddress(data.address);
+        if (data.requiresPasswordChange) {
+          setPendingLoginData({ user: data.user, address: data.address });
+          setShowChangePasswordDialog(true);
+        } else {
+          login(data.user, 'customer');
+          if (data.address) {
+            setAddress(data.address);
+          }
+          toast({ title: 'Bem-vindo de volta!', description: `Ola, ${data.user.name}!` });
+          
+          const params = new URLSearchParams(window.location.search);
+          const redirect = params.get('redirect') || '/';
+          setLocation(redirect);
         }
-        toast({ title: 'Bem-vindo de volta!', description: `Ola, ${data.user.name}!` });
-        
-        const params = new URLSearchParams(window.location.search);
-        const redirect = params.get('redirect') || '/';
-        setLocation(redirect);
       } else {
         toast({ title: 'Erro', description: data.error || 'Senha incorreta', variant: 'destructive' });
       }
@@ -146,6 +171,84 @@ export default function Login() {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    setForgotPasswordLoading(true);
+    try {
+      const cleanPhone = whatsapp.replace(/\D/g, '');
+      const response = await apiRequest('POST', '/api/auth/forgot-password', { whatsapp: cleanPhone });
+      const data = await response.json();
+      
+      if (data.success) {
+        setShowForgotPasswordDialog(false);
+        toast({ 
+          title: 'Solicitacao enviada!', 
+          description: 'O administrador entrara em contato pelo WhatsApp com sua nova senha temporaria.'
+        });
+        setStep('phone');
+        setPassword('');
+      } else {
+        toast({ title: 'Erro', description: data.error || 'Erro ao solicitar', variant: 'destructive' });
+      }
+    } catch (error: any) {
+      let errorMsg = 'Tente novamente mais tarde';
+      if (error instanceof Response) {
+        try {
+          const errorData = await error.json();
+          if (errorData?.error) errorMsg = errorData.error;
+        } catch {}
+      }
+      toast({ title: 'Erro', description: errorMsg, variant: 'destructive' });
+    } finally {
+      setForgotPasswordLoading(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (newPassword.length !== 6) {
+      toast({ title: 'Senha invalida', description: 'A senha deve ter 6 digitos', variant: 'destructive' });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast({ title: 'Senhas nao conferem', description: 'Digite a mesma senha nos dois campos', variant: 'destructive' });
+      return;
+    }
+
+    setChangePasswordLoading(true);
+    try {
+      const response = await apiRequest('POST', '/api/auth/change-password', {
+        userId: pendingLoginData?.user?.id,
+        newPassword
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        setShowChangePasswordDialog(false);
+        login(data.user, 'customer');
+        if (pendingLoginData?.address) {
+          setAddress(pendingLoginData.address);
+        }
+        toast({ title: 'Senha alterada!', description: 'Sua nova senha foi definida com sucesso.' });
+        
+        const params = new URLSearchParams(window.location.search);
+        const redirect = params.get('redirect') || '/';
+        setLocation(redirect);
+      } else {
+        toast({ title: 'Erro', description: data.error || 'Erro ao alterar senha', variant: 'destructive' });
+      }
+    } catch (error: any) {
+      let errorMsg = 'Tente novamente';
+      if (error instanceof Response) {
+        try {
+          const errorData = await error.json();
+          if (errorData?.error) errorMsg = errorData.error;
+        } catch {}
+      }
+      toast({ title: 'Erro', description: errorMsg, variant: 'destructive' });
+    } finally {
+      setChangePasswordLoading(false);
     }
   };
 
@@ -403,12 +506,7 @@ export default function Login() {
                   <Button
                     variant="ghost"
                     className="w-full text-muted-foreground text-sm hover:text-primary"
-                    onClick={() => {
-                      toast({ 
-                        title: 'Recuperar Senha', 
-                        description: 'Entre em contato com a loja via WhatsApp para solicitar uma nova senha.'
-                      });
-                    }}
+                    onClick={() => setShowForgotPasswordDialog(true)}
                     data-testid="button-forgot-password"
                   >
                     Esqueci minha senha
@@ -572,6 +670,114 @@ export default function Login() {
           </CardContent>
         </Card>
       </motion.div>
+
+      <Dialog open={showForgotPasswordDialog} onOpenChange={setShowForgotPasswordDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Recuperar Senha</DialogTitle>
+            <DialogDescription>
+              Ao confirmar, o administrador recebera sua solicitacao e entrara em contato pelo WhatsApp com uma senha temporaria.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground">
+              WhatsApp: <span className="font-medium text-foreground">{whatsapp}</span>
+            </p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Nome: <span className="font-medium text-foreground">{userName}</span>
+            </p>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowForgotPasswordDialog(false)}
+              disabled={forgotPasswordLoading}
+              data-testid="button-cancel-forgot"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleForgotPassword}
+              disabled={forgotPasswordLoading}
+              className="bg-gradient-to-r from-amber-500 to-yellow-500 text-black"
+              data-testid="button-confirm-forgot"
+            >
+              {forgotPasswordLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                'Solicitar Nova Senha'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showChangePasswordDialog} onOpenChange={() => {}}>
+        <DialogContent 
+          className="sm:max-w-md" 
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+          hideCloseButton
+        >
+          <DialogHeader>
+            <DialogTitle>Criar Nova Senha</DialogTitle>
+            <DialogDescription>
+              Sua senha foi redefinida pelo administrador. Por favor, crie uma nova senha de 6 digitos para continuar.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="new-password">Nova senha (6 digitos)</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-primary/60" />
+                <Input
+                  id="new-password"
+                  type="password"
+                  inputMode="numeric"
+                  placeholder="******"
+                  value={newPassword}
+                  onChange={handleNewPasswordChange}
+                  maxLength={6}
+                  className="pl-11 bg-secondary/50 border-primary/20 text-foreground text-center text-xl tracking-[0.5em] h-11 font-mono"
+                  data-testid="input-new-password"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirm-password">Confirmar senha</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-primary/60" />
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  inputMode="numeric"
+                  placeholder="******"
+                  value={confirmPassword}
+                  onChange={handleConfirmPasswordChange}
+                  maxLength={6}
+                  className="pl-11 bg-secondary/50 border-primary/20 text-foreground text-center text-xl tracking-[0.5em] h-11 font-mono"
+                  data-testid="input-confirm-password"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={handleChangePassword}
+              disabled={changePasswordLoading || newPassword.length !== 6 || confirmPassword.length !== 6}
+              className="w-full bg-gradient-to-r from-amber-500 to-yellow-500 text-black"
+              data-testid="button-save-new-password"
+            >
+              {changePasswordLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                'Salvar Nova Senha'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

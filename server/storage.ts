@@ -3,7 +3,7 @@ import { eq, desc, inArray, and, gte, lte } from "drizzle-orm";
 import { db } from "./db";
 import { 
   users, addresses, categories, products, orders, orderItems, 
-  banners, motoboys, stockLogs, settings, deliveryZones, neighborhoods, trendingProducts
+  banners, motoboys, stockLogs, settings, deliveryZones, neighborhoods, trendingProducts, passwordResetRequests
 } from "@shared/schema";
 import bcrypt from "bcrypt";
 import type { 
@@ -19,7 +19,8 @@ import type {
   Settings, InsertSettings,
   DeliveryZone, InsertDeliveryZone,
   Neighborhood, InsertNeighborhood,
-  TrendingProduct, InsertTrendingProduct
+  TrendingProduct, InsertTrendingProduct,
+  PasswordResetRequest, InsertPasswordResetRequest
 } from "@shared/schema";
 
 export interface IStorage {
@@ -102,6 +103,11 @@ export interface IStorage {
   removeTrendingProduct(id: string): Promise<boolean>;
   updateTrendingProductOrder(id: string, sortOrder: number): Promise<TrendingProduct | undefined>;
   reorderTrendingProducts(orderedIds: string[]): Promise<void>;
+
+  getPasswordResetRequests(): Promise<PasswordResetRequest[]>;
+  getPendingPasswordResetRequests(): Promise<PasswordResetRequest[]>;
+  createPasswordResetRequest(request: InsertPasswordResetRequest): Promise<PasswordResetRequest>;
+  completePasswordResetRequest(id: string, completedBy: string): Promise<PasswordResetRequest | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -658,6 +664,36 @@ export class DatabaseStorage implements IStorage {
         .set({ sortOrder: i })
         .where(eq(trendingProducts.id, orderedIds[i]));
     }
+  }
+
+  async getPasswordResetRequests(): Promise<PasswordResetRequest[]> {
+    return await db.select().from(passwordResetRequests).orderBy(desc(passwordResetRequests.createdAt));
+  }
+
+  async getPendingPasswordResetRequests(): Promise<PasswordResetRequest[]> {
+    return await db.select().from(passwordResetRequests)
+      .where(eq(passwordResetRequests.status, "pending"))
+      .orderBy(desc(passwordResetRequests.createdAt));
+  }
+
+  async createPasswordResetRequest(request: InsertPasswordResetRequest): Promise<PasswordResetRequest> {
+    const id = randomUUID();
+    const [resetRequest] = await db.insert(passwordResetRequests).values({
+      id,
+      userId: request.userId,
+      userName: request.userName,
+      userWhatsapp: request.userWhatsapp,
+      status: "pending",
+    }).returning();
+    return resetRequest;
+  }
+
+  async completePasswordResetRequest(id: string, completedBy: string): Promise<PasswordResetRequest | undefined> {
+    const [updated] = await db.update(passwordResetRequests)
+      .set({ status: "completed", completedAt: new Date(), completedBy })
+      .where(eq(passwordResetRequests.id, id))
+      .returning();
+    return updated || undefined;
   }
 }
 

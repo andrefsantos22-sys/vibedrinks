@@ -9,6 +9,7 @@ export const users = pgTable("users", {
   role: text("role").notNull().default("customer"),
   password: text("password"),
   isBlocked: boolean("is_blocked").default(false),
+  requiresPasswordChange: boolean("requires_password_change").default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -158,6 +159,17 @@ export const trendingProducts = pgTable("trending_products", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const passwordResetRequests = pgTable("password_reset_requests", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  userId: varchar("user_id", { length: 36 }).notNull().references(() => users.id),
+  userName: text("user_name").notNull(),
+  userWhatsapp: text("user_whatsapp").notNull(),
+  status: text("status").notNull().default("pending"),
+  createdAt: timestamp("created_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+  completedBy: varchar("completed_by", { length: 36 }),
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
 export const insertAddressSchema = createInsertSchema(addresses).omit({ id: true });
 export const insertCategorySchema = createInsertSchema(categories).omit({ id: true, createdAt: true });
@@ -171,6 +183,7 @@ export const insertSettingsSchema = createInsertSchema(settings).omit({ id: true
 export const insertDeliveryZoneSchema = createInsertSchema(deliveryZones).omit({ id: true });
 export const insertNeighborhoodSchema = createInsertSchema(neighborhoods).omit({ id: true });
 export const insertTrendingProductSchema = createInsertSchema(trendingProducts).omit({ id: true, createdAt: true });
+export const insertPasswordResetRequestSchema = createInsertSchema(passwordResetRequests).omit({ id: true, createdAt: true, completedAt: true, completedBy: true });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -198,6 +211,8 @@ export type InsertNeighborhood = z.infer<typeof insertNeighborhoodSchema>;
 export type Neighborhood = typeof neighborhoods.$inferSelect;
 export type InsertTrendingProduct = z.infer<typeof insertTrendingProductSchema>;
 export type TrendingProduct = typeof trendingProducts.$inferSelect;
+export type InsertPasswordResetRequest = z.infer<typeof insertPasswordResetRequestSchema>;
+export type PasswordResetRequest = typeof passwordResetRequests.$inferSelect;
 
 export type CartItem = {
   productId: string;

@@ -263,7 +263,12 @@ export async function registerRoutes(
     const defaultAddress = addresses.find(a => a.isDefault) || addresses[0];
     
     const { password: _, ...safeUser } = user;
-    res.json({ success: true, user: safeUser, address: defaultAddress || null });
+    res.json({ 
+      success: true, 
+      user: safeUser, 
+      address: defaultAddress || null,
+      requiresPasswordChange: user.requiresPasswordChange || false
+    });
   });
 
   app.post("/api/auth/motoboy-login", async (req, res) => {
@@ -358,6 +363,124 @@ export async function registerRoutes(
       res.json({ success: true });
     } else {
       res.status(401).json({ error: "Senha incorreta" });
+    }
+  });
+
+  // Password reset request - customer requests password reset
+  app.post("/api/auth/forgot-password", async (req, res) => {
+    try {
+      const { whatsapp: rawWhatsapp } = req.body;
+      
+      if (!rawWhatsapp) {
+        return res.status(400).json({ error: "WhatsApp obrigatorio" });
+      }
+      
+      // Normalize WhatsApp: strip all non-digit characters
+      const whatsapp = String(rawWhatsapp).replace(/\D/g, '');
+      
+      // Validate WhatsApp format (11 digits: DDD + 9 + number)
+      if (!/^\d{11}$/.test(whatsapp)) {
+        return res.status(400).json({ error: "Formato de WhatsApp invalido. Use 11 digitos (DDD + numero)" });
+      }
+      
+      const user = await storage.getUserByWhatsapp(whatsapp);
+      if (!user) {
+        return res.status(404).json({ error: "Usuario nao encontrado" });
+      }
+      
+      // Create password reset request
+      const request = await storage.createPasswordResetRequest({
+        userId: user.id,
+        userName: user.name,
+        userWhatsapp: user.whatsapp,
+        status: "pending"
+      });
+      
+      res.json({ success: true, message: "Solicitacao enviada. O administrador entrara em contato via WhatsApp." });
+    } catch (error: any) {
+      console.error("Error creating password reset request:", error);
+      res.status(500).json({ error: "Erro ao solicitar recuperacao de senha" });
+    }
+  });
+
+  // Admin: Get pending password reset requests
+  app.get("/api/admin/password-reset-requests", async (_req, res) => {
+    try {
+      const requests = await storage.getPendingPasswordResetRequests();
+      res.json(requests);
+    } catch (error: any) {
+      console.error("Error fetching password reset requests:", error);
+      res.status(500).json({ error: "Erro ao buscar solicitacoes" });
+    }
+  });
+
+  // Admin: Complete password reset request
+  app.post("/api/admin/password-reset/:id/complete", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { newPassword, adminId } = req.body;
+      
+      if (!newPassword || !/^\d{6}$/.test(newPassword)) {
+        return res.status(400).json({ error: "Nova senha deve ter 6 digitos" });
+      }
+      
+      // Get the request to find the user
+      const requests = await storage.getPasswordResetRequests();
+      const request = requests.find(r => r.id === id);
+      
+      if (!request) {
+        return res.status(404).json({ error: "Solicitacao nao encontrada" });
+      }
+      
+      if (request.status !== "pending") {
+        return res.status(400).json({ error: "Solicitacao ja foi processada" });
+      }
+      
+      // Update user password and set requiresPasswordChange flag
+      const hashedPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
+      await storage.updateUser(request.userId, { 
+        password: hashedPassword,
+        requiresPasswordChange: true
+      });
+      
+      // Mark request as completed
+      await storage.completePasswordResetRequest(id, adminId || "admin");
+      
+      res.json({ success: true, message: "Senha redefinida com sucesso" });
+    } catch (error: any) {
+      console.error("Error completing password reset:", error);
+      res.status(500).json({ error: "Erro ao redefinir senha" });
+    }
+  });
+
+  // User: Change password (used when requiresPasswordChange is true)
+  app.post("/api/auth/change-password", async (req, res) => {
+    try {
+      const { userId, newPassword } = req.body;
+      
+      if (!userId) {
+        return res.status(400).json({ error: "Usuario nao identificado" });
+      }
+      
+      if (!newPassword || !/^\d{6}$/.test(newPassword)) {
+        return res.status(400).json({ error: "Nova senha deve ter 6 digitos" });
+      }
+      
+      const hashedPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
+      const user = await storage.updateUser(userId, { 
+        password: hashedPassword,
+        requiresPasswordChange: false
+      });
+      
+      if (!user) {
+        return res.status(404).json({ error: "Usuario nao encontrado" });
+      }
+      
+      const { password: _, ...safeUser } = user;
+      res.json({ success: true, user: safeUser });
+    } catch (error: any) {
+      console.error("Error changing password:", error);
+      res.status(500).json({ error: "Erro ao alterar senha" });
     }
   });
 

@@ -107,17 +107,30 @@ export default function Checkout() {
     }).format(price);
   };
 
-  if (!isAuthenticated || !address) {
-    setLocation('/login?redirect=/checkout');
-    return null;
-  }
-
-  if (items.length === 0) {
-    setLocation('/');
-    return null;
-  }
-
   const isOpen = isBusinessHoursOpen();
+
+  // Redirect to login if not authenticated or no address
+  useEffect(() => {
+    if (!isAuthenticated || !address) {
+      setLocation('/login?redirect=/checkout');
+    }
+  }, [isAuthenticated, address, setLocation]);
+
+  // Redirect to home if cart is empty
+  useEffect(() => {
+    if (items.length === 0) {
+      setLocation('/');
+    }
+  }, [items.length, setLocation]);
+
+  // Show loading while checking auth
+  if (!isAuthenticated || !address || items.length === 0) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background py-8 px-4">
