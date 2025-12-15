@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { Camera, Upload, X, ImageIcon, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { uploadImage, getStorageUrl } from "@/lib/supabase";
+import { compressImage } from "@/lib/image-compression";
 import { useToast } from "@/hooks/use-toast";
 
 interface ProductImageUploaderProps {
@@ -54,7 +55,8 @@ export function ProductImageUploader({
     setIsUploading(true);
 
     try {
-      const { publicUrl } = await uploadImage(file, folder);
+      const compressedFile = await compressImage(file);
+      const { publicUrl } = await uploadImage(compressedFile, folder);
       setPreviewUrl(publicUrl);
       onImageUploaded(publicUrl);
       toast({

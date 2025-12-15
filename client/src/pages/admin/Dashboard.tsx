@@ -53,7 +53,9 @@ import {
   Image,
   History,
   ClipboardList,
-  CheckCircle2
+  CheckCircle2,
+  Bell,
+  BellOff
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { useRef} from 'react';
@@ -72,6 +74,7 @@ import { useAuth } from '@/lib/auth';
 import { useToast } from '@/hooks/use-toast';
 import { useOrderUpdates } from '@/hooks/use-order-updates';
 import { useNotificationSound } from '@/hooks/use-notification-sound';
+import { usePushNotifications } from '@/hooks/use-push-notifications';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { ProductImageUploader } from '@/components/ProductImageUploader';
 import { ExpandableOrderCard } from '@/components/ExpandableOrderCard';
@@ -4950,23 +4953,41 @@ export default function AdminDashboard() {
   const { toast } = useToast();
   const [isSSEConnected, setIsSSEConnected] = useState(false);
   const { playOnce, playMultiple } = useNotificationSound();
+  const { 
+    permission: notifPermission, 
+    isSupported: notifSupported, 
+    requestPermission, 
+    notifyNewOrder, 
+    notifyOrderStatusChange 
+  } = usePushNotifications({ playSound: false });
 
   useOrderUpdates({
     onConnected: () => setIsSSEConnected(true),
     onDisconnected: () => setIsSSEConnected(false),
     onOrderCreated: (data) => {
+      const effectiveId = data.orderId ?? data.id;
       if (data.orderType !== 'counter') {
         playMultiple(5);
+        if (effectiveId) {
+          notifyNewOrder(effectiveId, data.customerName || undefined);
+        }
       }
       toast({ title: 'Novo pedido recebido!' });
     },
     onOrderStatusChanged: (data) => {
+      const effectiveId = data.orderId ?? data.id;
       if (data.status === 'pending') {
         playMultiple(3);
+        if (effectiveId) {
+          notifyNewOrder(effectiveId, data.customerName || undefined);
+        }
         toast({ title: 'Novo pedido pendente!' });
       }
       if (data.status === 'ready') {
         playOnce();
+        if (effectiveId) {
+          notifyOrderStatusChange(effectiveId, 'Pronto para entrega');
+        }
         toast({ title: 'Pedido pronto para entrega!' });
       }
     },
@@ -5043,6 +5064,30 @@ export default function AdminDashboard() {
             <Badge className="bg-primary/20 text-primary hidden sm:inline-flex">Admin</Badge>
           </div>
           <div className="flex items-center gap-2">
+            {notifSupported && notifPermission !== 'granted' && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={async () => {
+                  const granted = await requestPermission();
+                  toast({ 
+                    title: granted ? 'Notificacoes ativadas!' : 'Permissao negada',
+                    variant: granted ? 'default' : 'destructive'
+                  });
+                }}
+                className="text-yellow-500 border-yellow-500/50"
+                data-testid="button-enable-notifications"
+              >
+                <BellOff className="w-4 h-4 mr-1" />
+                Ativar Alertas
+              </Button>
+            )}
+            {notifSupported && notifPermission === 'granted' && (
+              <Badge variant="outline" className="border-green-500/50 text-green-500">
+                <Bell className="w-3 h-3 mr-1" />
+                Alertas
+              </Badge>
+            )}
             <Badge 
               variant="outline" 
               className={isSSEConnected ? 'border-green-500 text-green-500' : 'border-red-500 text-red-500'}
