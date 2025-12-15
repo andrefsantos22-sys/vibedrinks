@@ -53,11 +53,11 @@ import {
   Image,
   History,
   ClipboardList,
-  CheckCircle2,
-  Bell,
-  BellOff
+  CheckCircle2
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { useRef} from 'react';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
@@ -1351,7 +1351,7 @@ function EstoqueTab() {
 
   // Get unique categories from low stock products using product's categoryName directly
   const lowStockCategories = lowStockData?.products 
-    ? [...new Map(lowStockData.products.map(p => [p.categoryId, { id: p.categoryId, name: p.categoryName }])).values()]
+    ? Array.from(new Map(lowStockData.products.map(p => [p.categoryId, { id: p.categoryId, name: p.categoryName }])).values())
     : [];
 
   // Clear selection when category filter changes to avoid orphaned selections
@@ -1468,6 +1468,51 @@ function EstoqueTab() {
     link.click();
     URL.revokeObjectURL(url);
     toast({ title: 'Lista de compras exportada!' });
+  };
+
+  const handleExportLowStockPDF = () => {
+    if (!lowStockData) return;
+    
+    if (selectedProducts.size === 0) {
+      toast({ title: 'Selecione os produtos que deseja incluir na lista PDF', variant: 'destructive' });
+      return;
+    }
+    
+    const productsToExport = filteredLowStockProducts.filter(p => selectedProducts.has(p.id));
+    const totalCost = productsToExport.reduce((sum, p) => sum + p.estimatedPurchaseCost, 0);
+    
+    const doc = new jsPDF();
+    
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Lista de Compras - Vibe Drinks', 14, 20);
+    
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, 14, 30);
+    doc.text(`Total de Produtos: ${productsToExport.length}`, 14, 36);
+    doc.text(`Custo Estimado: ${formatCurrency(totalCost)}`, 14, 42);
+    
+    const tableData = productsToExport.map(p => [
+      p.name,
+      p.categoryName,
+      p.currentStock.toString(),
+      p.suggestedPurchase.toString(),
+      formatCurrency(p.costPrice),
+      formatCurrency(p.estimatedPurchaseCost),
+    ]);
+    
+    autoTable(doc, {
+      startY: 50,
+      head: [['Produto', 'Categoria', 'Estoque', 'Qtd Sugerida', 'Custo Unit.', 'Custo Total']],
+      body: tableData,
+      theme: 'striped',
+      headStyles: { fillColor: [139, 92, 246] },
+      styles: { fontSize: 8 },
+    });
+    
+    doc.save(`lista-compras-${new Date().toISOString().slice(0,10)}.pdf`);
+    toast({ title: 'Lista de compras PDF gerada!' });
   };
 
   return (
@@ -1729,7 +1774,11 @@ function EstoqueTab() {
                   </Select>
                   <Button variant="outline" size="sm" onClick={handleExportLowStock} data-testid="button-export-low-stock">
                     <Download className="w-4 h-4 mr-2" />
-                    Exportar CSV {selectedProducts.size > 0 && `(${selectedProducts.size})`}
+                    CSV
+                  </Button>
+                  <Button variant="default" size="sm" onClick={handleExportLowStockPDF} disabled={selectedProducts.size === 0} data-testid="button-export-low-stock-pdf">
+                    <FileText className="w-4 h-4 mr-2" />
+                    Gerar PDF {selectedProducts.size > 0 && `(${selectedProducts.size})`}
                   </Button>
                 </div>
               </div>
@@ -5064,30 +5113,6 @@ export default function AdminDashboard() {
             <Badge className="bg-primary/20 text-primary hidden sm:inline-flex">Admin</Badge>
           </div>
           <div className="flex items-center gap-2">
-            {notifSupported && notifPermission !== 'granted' && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={async () => {
-                  const granted = await requestPermission();
-                  toast({ 
-                    title: granted ? 'Notificacoes ativadas!' : 'Permissao negada',
-                    variant: granted ? 'default' : 'destructive'
-                  });
-                }}
-                className="text-yellow-500 border-yellow-500/50"
-                data-testid="button-enable-notifications"
-              >
-                <BellOff className="w-4 h-4 mr-1" />
-                Ativar Alertas
-              </Button>
-            )}
-            {notifSupported && notifPermission === 'granted' && (
-              <Badge variant="outline" className="border-green-500/50 text-green-500">
-                <Bell className="w-3 h-3 mr-1" />
-                Alertas
-              </Badge>
-            )}
             <Badge 
               variant="outline" 
               className={isSSEConnected ? 'border-green-500 text-green-500' : 'border-red-500 text-red-500'}
