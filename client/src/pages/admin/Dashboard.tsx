@@ -79,7 +79,7 @@ import { apiRequest, queryClient } from '@/lib/queryClient';
 import { ProductImageUploader } from '@/components/ProductImageUploader';
 import { ExpandableOrderCard } from '@/components/ExpandableOrderCard';
 import type { Order, Product, Category, Motoboy, User, Settings as SettingsType, OrderItem, Address, DeliveryZone, Neighborhood, ShoppingList, ShoppingListItem } from '@shared/schema';
-import { ORDER_STATUS_LABELS, PAYMENT_METHOD_LABELS, ORDER_TYPE_LABELS, type OrderStatus, type PaymentMethod, type OrderType } from '@shared/schema';
+import { ORDER_STATUS_LABELS, PAYMENT_METHOD_LABELS, ORDER_TYPE_LABELS, SALESPERSON_LABELS, type OrderStatus, type PaymentMethod, type OrderType, type Salesperson } from '@shared/schema';
 
 const tabs = [
   { id: 'pedidos', label: 'Pedidos', icon: Package },
@@ -630,6 +630,26 @@ function FinanceiroTab() {
     value: Number(value.toFixed(2)),
   }));
 
+  const salespersonBreakdown = filteredOrders.reduce((acc, order) => {
+    if (order.salesperson) {
+      const sp = order.salesperson as Salesperson;
+      if (!acc[sp]) {
+        acc[sp] = { revenue: 0, orders: 0 };
+      }
+      acc[sp].revenue += Number(order.total);
+      acc[sp].orders += 1;
+    }
+    return acc;
+  }, {} as Record<Salesperson, { revenue: number; orders: number }>);
+
+  const salespersonChartData = Object.entries(salespersonBreakdown)
+    .map(([sp, data]) => ({
+      name: SALESPERSON_LABELS[sp as Salesperson] || sp,
+      value: Number(data.revenue.toFixed(2)),
+      orders: data.orders,
+    }))
+    .sort((a, b) => b.value - a.value);
+
   const revenueByDay = filteredOrders.reduce((acc, order) => {
     const date = new Date(order.createdAt!).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
     acc[date] = (acc[date] || 0) + Number(order.total);
@@ -917,6 +937,38 @@ function FinanceiroTab() {
             ) : (
               <div className="h-64 flex items-center justify-center text-muted-foreground">
                 Sem dados para o periodo selecionado
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card data-testid="card-salesperson-revenue">
+          <CardHeader>
+            <CardTitle className="text-lg">Vendas por Balconista</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {salespersonChartData.length > 0 ? (
+              <div className="space-y-3 max-h-64 overflow-y-auto">
+                {salespersonChartData.map((sp, index) => (
+                  <div 
+                    key={sp.name} 
+                    className="flex items-center justify-between py-2 border-b border-border/20 last:border-0"
+                    data-testid={`row-salesperson-${index}`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="text-xs text-muted-foreground w-5">#{index + 1}</span>
+                      <span className="truncate font-medium">{sp.name}</span>
+                    </div>
+                    <div className="flex items-center gap-4 flex-shrink-0">
+                      <Badge variant="secondary" className="text-xs">{sp.orders} pedidos</Badge>
+                      <span className="font-bold text-primary">{formatCurrency(sp.value)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="h-64 flex items-center justify-center text-muted-foreground">
+                Sem dados de balconistas no periodo
               </div>
             )}
           </CardContent>
